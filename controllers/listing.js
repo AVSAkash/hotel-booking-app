@@ -1,10 +1,27 @@
 const Listing = require("../models/listing.js");
-const NodeGeocoder = require("node-geocoder");
+const fetch = require("node-fetch");
 
-// Geocoder setup (OpenStreetMap provider)
-const geocoder = NodeGeocoder({
-  provider: "openstreetmap"
-});
+// Helper function for Geoapify geocoding
+async function geocodeAddress(address) {
+  const apiKey = process.env.GEOAPIFY_KEY;
+  const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(
+    address
+  )}&apiKey=${apiKey}`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.features && data.features.length > 0) {
+      const { lat, lon } = data.features[0].properties;
+      return { latitude: lat, longitude: lon };
+    } else {
+      return null;
+    }
+  } catch (err) {
+    console.error("Geocoding error:", err);
+    return null;
+  }
+}
 
 // Show all listings
 module.exports.index = async (req, res) => {
@@ -40,11 +57,11 @@ module.exports.createListing = async (req, res) => {
   const listing = new Listing(req.body.listing);
 
   // Geocode location → store coordinates
-  const geoData = await geocoder.geocode(listing.location);
-  if (geoData.length) {
+  const coords = await geocodeAddress(listing.location);
+  if (coords) {
     listing.geometry = {
       type: "Point",
-      coordinates: [geoData[0].longitude, geoData[0].latitude],
+      coordinates: [coords.longitude, coords.latitude],
     };
   }
 
@@ -89,11 +106,11 @@ module.exports.updateListing = async (req, res) => {
 
   // Geocode if location changed
   if (req.body.listing.location) {
-    const geoData = await geocoder.geocode(req.body.listing.location);
-    if (geoData.length) {
+    const coords = await geocodeAddress(req.body.listing.location);
+    if (coords) {
       listing.geometry = {
         type: "Point",
-        coordinates: [geoData[0].longitude, geoData[0].latitude],
+        coordinates: [coords.longitude, coords.latitude],
       };
     }
   }
@@ -110,7 +127,7 @@ module.exports.updateListing = async (req, res) => {
   if (req.body.listing.imageUrl && req.body.listing.imageUrl.trim() !== "") {
     listing.image = {
       url: req.body.listing.imageUrl,
-      filename: "", // no filename since it's not from Cloudinary
+      filename: "", // not from Cloudinary
     };
   }
 
