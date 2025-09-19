@@ -36,7 +36,7 @@ module.exports.renderNewForm = (req, res) => {
 
 // Show one listing
 module.exports.showListing = async (req, res) => {
-  let { id } = req.params;
+  const { id } = req.params;
   const listing = await Listing.findById(id)
     .populate({
       path: "reviews",
@@ -58,12 +58,15 @@ module.exports.createListing = async (req, res) => {
 
   // Geocode location → store coordinates
   const coords = await geocodeAddress(listing.location);
-  if (coords) {
-    listing.geometry = {
-      type: "Point",
-      coordinates: [coords.longitude, coords.latitude],
-    };
+  if (!coords) {
+    req.flash("error", "Invalid location. Please enter a valid address.");
+    return res.redirect("/listings/new");
   }
+
+  listing.geometry = {
+    type: "Point",
+    coordinates: [coords.longitude, coords.latitude],
+  };
 
   // If file uploaded
   if (req.file) {
@@ -82,7 +85,7 @@ module.exports.createListing = async (req, res) => {
 
 // Render Edit Form
 module.exports.renderEditForm = async (req, res) => {
-  let { id } = req.params;
+  const { id } = req.params;
   const listing = await Listing.findById(id);
 
   if (!listing) {
@@ -95,9 +98,8 @@ module.exports.renderEditForm = async (req, res) => {
 
 // Update Listing
 module.exports.updateListing = async (req, res) => {
-  let { id } = req.params;
+  const { id } = req.params;
 
-  // Update fields
   const listing = await Listing.findByIdAndUpdate(
     id,
     { ...req.body.listing },
@@ -107,12 +109,14 @@ module.exports.updateListing = async (req, res) => {
   // Geocode if location changed
   if (req.body.listing.location) {
     const coords = await geocodeAddress(req.body.listing.location);
-    if (coords) {
-      listing.geometry = {
-        type: "Point",
-        coordinates: [coords.longitude, coords.latitude],
-      };
+    if (!coords) {
+      req.flash("error", "Invalid location. Please enter a valid address.");
+      return res.redirect(`/listings/${id}/edit`);
     }
+    listing.geometry = {
+      type: "Point",
+      coordinates: [coords.longitude, coords.latitude],
+    };
   }
 
   // If new file uploaded
@@ -139,7 +143,7 @@ module.exports.updateListing = async (req, res) => {
 
 // Delete Listing
 module.exports.deleteListing = async (req, res) => {
-  let { id } = req.params;
+  const { id } = req.params;
   await Listing.findByIdAndDelete(id);
   req.flash("success", "Listing Deleted");
   res.redirect("/listings");
