@@ -1,23 +1,40 @@
 const Listing = require("../models/listing.js");
+const fetch = require("node-fetch");
 
-// Helper function for Geoapify geocoding
+// ✅ Helper function for Geoapify geocoding
 async function geocodeAddress(address) {
   const apiKey = process.env.GEOAPIFY_KEY;
+
+  if (!apiKey) {
+    console.error("❌ GEOAPIFY_KEY is missing! Check your .env or Render environment variables.");
+    throw new Error("Geoapify API key not configured.");
+  }
+
   const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(
     address
   )}&apiKey=${apiKey}`;
 
   try {
+    console.log("🌍 Geocoding request:", url); // Debugging
     const response = await fetch(url);
+
+    if (!response.ok) {
+      console.error("❌ Geoapify API error:", response.status, response.statusText);
+      return null;
+    }
+
     const data = await response.json();
+    console.log("📦 Geocoding response:", JSON.stringify(data, null, 2));
+
     if (data.features && data.features.length > 0) {
       const { lat, lon } = data.features[0].properties;
       return { latitude: lat, longitude: lon };
     } else {
+      console.warn("⚠️ No geocoding results for address:", address);
       return null;
     }
   } catch (err) {
-    console.error("Geocoding error:", err);
+    console.error("❌ Geocoding error:", err);
     return null;
   }
 }
@@ -35,7 +52,7 @@ module.exports.renderNewForm = (req, res) => {
 
 // Show one listing
 module.exports.showListing = async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
   const listing = await Listing.findById(id)
     .populate({
       path: "reviews",
@@ -57,15 +74,12 @@ module.exports.createListing = async (req, res) => {
 
   // Geocode location → store coordinates
   const coords = await geocodeAddress(listing.location);
-  if (!coords) {
-    req.flash("error", "Invalid location. Please enter a valid address.");
-    return res.redirect("/listings/new");
+  if (coords) {
+    listing.geometry = {
+      type: "Point",
+      coordinates: [coords.longitude, coords.latitude],
+    };
   }
-
-  listing.geometry = {
-    type: "Point",
-    coordinates: [coords.longitude, coords.latitude],
-  };
 
   // If file uploaded
   if (req.file) {
@@ -84,7 +98,7 @@ module.exports.createListing = async (req, res) => {
 
 // Render Edit Form
 module.exports.renderEditForm = async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
   const listing = await Listing.findById(id);
 
   if (!listing) {
@@ -97,8 +111,9 @@ module.exports.renderEditForm = async (req, res) => {
 
 // Update Listing
 module.exports.updateListing = async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
 
+  // Update fields
   const listing = await Listing.findByIdAndUpdate(
     id,
     { ...req.body.listing },
@@ -108,14 +123,12 @@ module.exports.updateListing = async (req, res) => {
   // Geocode if location changed
   if (req.body.listing.location) {
     const coords = await geocodeAddress(req.body.listing.location);
-    if (!coords) {
-      req.flash("error", "Invalid location. Please enter a valid address.");
-      return res.redirect(`/listings/${id}/edit`);
+    if (coords) {
+      listing.geometry = {
+        type: "Point",
+        coordinates: [coords.longitude, coords.latitude],
+      };
     }
-    listing.geometry = {
-      type: "Point",
-      coordinates: [coords.longitude, coords.latitude],
-    };
   }
 
   // If new file uploaded
@@ -142,9 +155,8 @@ module.exports.updateListing = async (req, res) => {
 
 // Delete Listing
 module.exports.deleteListing = async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
   await Listing.findByIdAndDelete(id);
   req.flash("success", "Listing Deleted");
   res.redirect("/listings");
 };
-
