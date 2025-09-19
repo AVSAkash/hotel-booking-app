@@ -15,7 +15,7 @@ async function geocodeAddress(address) {
   )}&apiKey=${apiKey}`;
 
   try {
-    console.log("🌍 Geocoding request:", url); // Debugging
+    console.log("🌍 Geocoding request:", url);
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -68,7 +68,7 @@ module.exports.showListing = async (req, res) => {
   res.render("listings/show", { listing });
 };
 
-// Create a new listing
+// ✅ Create a new listing
 module.exports.createListing = async (req, res) => {
   const listing = new Listing(req.body.listing);
 
@@ -86,6 +86,14 @@ module.exports.createListing = async (req, res) => {
     listing.image = {
       url: req.file.path,
       filename: req.file.filename,
+    };
+  }
+
+  // ✅ If image URL provided
+  if (req.body.listing.imageUrl && req.body.listing.imageUrl.trim() !== "") {
+    listing.image = {
+      url: req.body.listing.imageUrl,
+      filename: "", // not from Cloudinary
     };
   }
 
@@ -109,11 +117,11 @@ module.exports.renderEditForm = async (req, res) => {
   res.render("listings/edit", { listing });
 };
 
-// Update Listing
+// ✅ Update Listing
 module.exports.updateListing = async (req, res) => {
   let { id } = req.params;
 
-  // Update fields
+  // Update base fields
   const listing = await Listing.findByIdAndUpdate(
     id,
     { ...req.body.listing },
@@ -139,11 +147,11 @@ module.exports.updateListing = async (req, res) => {
     };
   }
 
-  // If new image URL provided
+  // ✅ If new image URL provided
   if (req.body.listing.imageUrl && req.body.listing.imageUrl.trim() !== "") {
     listing.image = {
       url: req.body.listing.imageUrl,
-      filename: "", // not from Cloudinary
+      filename: "",
     };
   }
 
