@@ -1,5 +1,4 @@
 const Listing = require("../models/listing.js");
-const fetch = require("node-fetch");
 
 // Helper function for Geoapify geocoding
 async function geocodeAddress(address) {
@@ -148,3 +147,4 @@ module.exports.deleteListing = async (req, res) => {
   req.flash("success", "Listing Deleted");
   res.redirect("/listings");
 };
+
